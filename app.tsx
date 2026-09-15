@@ -5,10 +5,11 @@ import {
   experimental_useSidebarThreads,
 } from "@get-bb/plugin-sdk/app";
 import {
-  isDocumentDark,
+  isCanvasDark,
   providerLabel,
   providerMarkSvg,
   resolveMarkColor,
+  resolveMarkFilter,
   type ProviderIconTint,
 } from "./lib/provider-marks";
 
@@ -31,7 +32,7 @@ function injectProviderIcons(
   providers: readonly ProviderTintSource[],
 ) {
   const byId = new Map(threads.map((thread) => [thread.id, thread.providerId]));
-  const dark = isDocumentDark();
+  const dark = isCanvasDark();
   for (const target of Array.from(document.querySelectorAll("[data-sidebar-thread-id]"))) {
     const id = target.getAttribute("data-sidebar-thread-id");
     if (!id) continue;
@@ -63,6 +64,7 @@ function injectProviderIcons(
     const label = providerLabel(providerId);
     const color = resolveMarkColor(providerId, providerTint(providers, providerId), dark);
     icon.style.color = color;
+    icon.style.filter = resolveMarkFilter(providerId, dark);
     if (icon.dataset.threadProvider !== providerId) {
       icon.dataset.threadProvider = providerId;
       icon.innerHTML = providerMarkSvg(providerId, ICON_SIZE);

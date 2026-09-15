@@ -15,6 +15,12 @@ export type ProviderMarkSpec = {
   fillRule?: "evenodd";
   /** CSS color. Sidebar injection sits outside plugin CSS, so no Tailwind. */
   color: string;
+  /**
+   * Black-on-transparent mark (Cursor). BB inverts these on dark canvases
+   * with `dark:invert`. Tokyo Night is dark even in Light appearance, so we
+   * invert from `--canvas` luminance, not the `.dark` class.
+   */
+  invertOnDark?: boolean;
 };
 
 const MARKS: Record<string, ProviderMarkSpec> = {
@@ -51,7 +57,8 @@ const MARKS: Record<string, ProviderMarkSpec> = {
     paths: [
       "M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23",
     ],
-    color: "var(--ink)",
+    color: "#111827",
+    invertOnDark: true,
   },
   "acp-grok": {
     label: "Grok",
@@ -114,18 +121,59 @@ export function providerMarkSpec(providerId: string | undefined): ProviderMarkSp
   return MARKS[providerId] ?? MARKS.acp;
 }
 
-export function isDocumentDark(): boolean {
+export function isCanvasDark(): boolean {
+  const canvas = getComputedStyle(document.documentElement).getPropertyValue("--canvas").trim();
+  const luminance = cssLuminance(canvas);
+  if (luminance !== null) return luminance < 0.5;
   return document.documentElement.classList.contains("dark");
+}
+
+function cssLuminance(css: string): number | null {
+  const hex = css.match(/^#([0-9a-f]{3,8})$/i);
+  if (hex) {
+    let digits = hex[1];
+    if (digits.length === 3 || digits.length === 4) {
+      digits = [...digits].map((char) => char + char).join("");
+    }
+    const r = parseInt(digits.slice(0, 2), 16);
+    const g = parseInt(digits.slice(2, 4), 16);
+    const b = parseInt(digits.slice(4, 6), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+  const rgb = css.match(/^rgba?\(\s*([0-9.]+)\s*[, ]\s*([0-9.]+)\s*[, ]\s*([0-9.]+)/i);
+  if (rgb) {
+    const r = Number(rgb[1]);
+    const g = Number(rgb[2]);
+    const b = Number(rgb[3]);
+    const scale = r <= 1 && g <= 1 && b <= 1 ? 255 : 1;
+    return (0.2126 * r * scale + 0.7152 * g * scale + 0.0722 * b * scale) / 255;
+  }
+  const oklch = css.match(/^oklch\(\s*([0-9.]+)(%?)/i);
+  if (oklch) {
+    const value = Number(oklch[1]);
+    if (oklch[2] === "%" || value > 1) return value / 100;
+    return value;
+  }
+  return null;
 }
 
 /** Prefer the live provider `strings.iconTint`; otherwise the vendored fallback. */
 export function resolveMarkColor(
   providerId: string | undefined,
   tint: ProviderIconTint | undefined,
-  dark = isDocumentDark(),
+  dark = isCanvasDark(),
 ): string {
+  const spec = providerMarkSpec(providerId);
+  if (spec.invertOnDark) return spec.color;
   if (tint?.light && tint?.dark) return dark ? tint.dark : tint.light;
-  return providerMarkSpec(providerId).color;
+  return spec.color;
+}
+
+export function resolveMarkFilter(
+  providerId: string | undefined,
+  dark = isCanvasDark(),
+): string {
+  return providerMarkSpec(providerId).invertOnDark && dark ? "invert(1)" : "none";
 }
 
 /**

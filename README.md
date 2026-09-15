@@ -14,7 +14,10 @@ tell at a glance who owns which thread.
 - One 14px provider mark per sidebar row, inserted before the title.
 - Brand colours from each provider's `strings.iconTint`, applied as inline
   `color` (plugin Tailwind is scoped to `[data-bb-plugin=…]` and never reaches
-  injected sidebar DOM). Codex / Grok fall back to `var(--ink)`.
+  injected sidebar DOM). Codex / Grok fall back to `var(--ink)`. Cursor is a
+  black mark: it keeps `#111827` and `filter: invert(1)` when `--canvas` is
+  dark, matching BB's own `dark:invert` (needed when a dark theme is used
+  without the `.dark` class).
 - Any unknown `acp-*` agent falls back to the generic ACP mark and is labelled
   from its provider id, so new agents still get a sensible icon.
 - Hover tooltip naming the provider.
